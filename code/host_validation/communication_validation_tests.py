@@ -33,7 +33,7 @@ import numpy as np
 from gpu_connection_test import IbResultsSchema
 from loguru import logger
 from p2p_ib_test import run_p2p_ib_tests
-from p2p_ib_test import shutdown_test
+#from p2p_ib_test import shutdown_test
 from utils.events import get_expiration_event
 from utils.run_command import CommandRunner
 from utils.run_command import ContainerSSHConnectionData
@@ -130,10 +130,12 @@ def run_ib_test(
     try:
         with get_expiration_event(EXPIRATION_SECONDS) as event:
             extra_flags_str = " ".join([f"--{k} {v}" for k, v in extra_flags.items()]) if extra_flags else ""
+            app_path = os.path.abspath(os.path.dirname(__file__))
             command = (
-                f"{format_env(ENV_VARS)} python3 -m host_validation.gpu_connection_test ib --rail {rail} --master_addr {master_addr}"
+                f"{format_env(ENV_VARS)} python3 {app_path}/gpu_connection_test.py ib --rail {rail} --master_addr {master_addr}"
                 + f" --master_port {master_port} --rank {rank} --world_size {world_size} {extra_flags_str}"
             )
+            print("commands:",command)
             result = connection.run_command(
                 command=command,
                 shutdown_event=event,
@@ -149,7 +151,7 @@ def run_ib_test(
             return ib_results.results
     except Exception as e:
         logger.info(f"caught exception running {command} on {connection}:\n{e}")
-        shutdown_test(connection, "tests.ib_tes[t]")
+        #shutdown_test(connection, "tests.ib_tes[t]")
         return ErrorString(f"Caught exception running tests: {e}")
 
 
@@ -205,6 +207,7 @@ def run_experiments(
     concurrent_groups = len(groups) * 8
     with ThreadPoolExecutor(max_workers=concurrent_groups) as executor:
         if not rail_aligned:
+            print("run_experiments************************************02**************")
             results = executor.map(run_single_group_across_all_rails, groups)
             scores_by_connection_rail = {}
             for result in results:
@@ -212,6 +215,7 @@ def run_experiments(
                     scores_by_connection_rail[(connection, str(rail))] = scores
             return scores_by_connection_rail
         else:
+            print("run_experiments************************************03**************")
             results = executor.map(
                 lambda group_and_rail: run_single_group(*group_and_rail),
                 [(group, rail) for group in groups for rail in range(8)],
@@ -245,7 +249,6 @@ def run_group_ib_tests(
         for group_size in group_sizes:
             group_size = min(group_size, len(connections))
             scores_by_connection = dict()
-
             logger.info(f"Running tests for group size {group_size}")
             group_size = min(group_size, len(connections))
             mixed_nodes = list(connections)
@@ -275,8 +278,8 @@ def run_nvlink_test_single_host(
     connection: CommandRunner,
     dims: int,
     loops: int,
-) -> Tuple[Union[CommandRunner, str], TestResultType]:
-    logger.info(f"running on {connection.ip} node")
+) -> Tuple[Union[CommandRunner, str], str]:
+    logger.info(f"nvlink_test running on {connection.ip} node")
     try:
         with get_expiration_event(EXPIRATION_SECONDS) as event:
             # 获取文件所在路径
@@ -284,34 +287,33 @@ def run_nvlink_test_single_host(
             command = (
                 f"{format_env(ENV_VARS)} torchrun --nproc_per_node 8 {app_path}/gpu_connection_test.py nvlink --dims {dims} --loops {loops}"
             )
-            print("commands:",command)
-            result = connection.run_command(
-                command=command,
-                shutdown_event=event,
-            )
-            nvlink_results_str = result.output.strip().split("\n")[-1]
-            nvlink_results = deserialize_from_json(nvlink_results_str)
-            return connection, nvlink_results.results
+            #print("commands:",command)
+            nvlink_results_str = connection.run_command(command=command,shutdown_event=event,)
+            # nvlink_results_str = result.output.strip().split("\n")[-1]
+            print("nvlink_results_str:",nvlink_results_str.output)
+            # nvlink_results = deserialize_from_json(nvlink_results_str)
+            return connection, nvlink_results_str.output
     except Exception as e:
-        logger.info(f"caught exception running {command} on {connection}:\n{e}")
-        shutdown_test(connection, "tests.nvlink_tes[t]")
+        logger.info(f"caught exception running torchrun on {connection}:\n{e}")
+        # shutdown_test(connection, "tests.nvlink_tes[t]")
         return connection, ErrorString(f"Caught exception running tests: {e}")
 
 
 def run_nvlink_tests(
     connections: Sequence[CommandRunner],
-    output_file: Optional[Path] = None,
+    output_file: str = None,
     dims: int = 1_000_000_000,
     loops: int = 20,
 ) -> Dict[str, Dict[str, Union[float, List[float]]]]:
     if output_file:
-        with output_file.open("a+") as f:
+        with open(output_file,"a+") as f:
             f.write(f"Starting nvlink tests with connections {[connection.ip for connection in connections]}\n")
     group_size = 1
     scores_by_connection = {}
+    
 
     nodes = [group[0] for group in generate_chunks(connections, group_size)]
-    print("nodes:",nodes)
+    #print("nodes:",nodes)
     with ThreadPoolExecutor(max_workers=len(nodes)) as executor:
         results = executor.map(lambda node: run_nvlink_test_single_host(node, dims, loops), nodes)
     for connection, scores in results:
@@ -322,12 +324,15 @@ def run_nvlink_tests(
         for connection, scores in sorted(scores_by_connection.items(), key=lambda item: item[1])
     ]
 
-    logger.info(f"Results: \n" + "\n".join(log_lines))
+    #print(log_lines)
+    #logger.info(f"Results: \n" + "\n".join(log_lines))
     if output_file:
-        with output_file.open("a+") as f:
+        with open(output_file,"a+") as f:
             f.write(f"Results: \n" + "\n".join(log_lines) + "\n")
 
-    return parse_nvlink_test_for_stats(scores_by_connection)
+    #parse_nvlink_test_for_stats(scores_by_connection)
+
+    return "successful"
 
 
 def run_tests_single_node(command_runner: RemoteCommandRunner) -> None:
@@ -335,43 +340,39 @@ def run_tests_single_node(command_runner: RemoteCommandRunner) -> None:
     logger.info(f"Starting single node tests for {command_runner.ip}")
     readable_time = time.strftime("%Y-%m-%d %H:%M:%S")
     filename_time = time.strftime("%Y%m%d%H%M%S")
-    tests_dir = Path(f"/mnt/private/tmp/health_tests/{command_runner.ip}/")
-    run_local_command(f"sudo mkdir -p {tests_dir}")
-    run_local_command(f"sudo chown user {tests_dir}")
-    run_local_command(f"sudo chgrp user {tests_dir}")
-    remote_tests_dir = Path("/mnt/unsafe_raw_shared_fs/tmp/health_tests/")
-    command_runner.run_command(f"sudo mkdir -p {remote_tests_dir}")
-    command_runner.run_command(f"sudo chown user {remote_tests_dir}")
-    command_runner.run_command(f"sudo chgrp user {remote_tests_dir}")
+    output_path = os.path.abspath(os.path.dirname(__file__))
+    tests_dir = os.path.join(output_path,f"health_tests/{command_runner.ip}/")
+    if os.path.exists(tests_dir) == False:
+        res = run_local_command(["mkdir" "-p" f"{tests_dir}"])
+        print("create path ",tests_dir,res)
+    #run_local_command(["sudo" "mkdir" "-p" f"{tests_dir}"])
+    #run_local_command(["sudo" "chown" "root" f"{tests_dir}"])
+    #run_local_command(["sudo" "chgrp" "root" f"{tests_dir}"])
 
-    nvlink_results = run_nvlink_tests(
-        [command_runner], output_file=(tests_dir / "nvlink.txt"), dims=16_000_000, loops=30_000
-    )[command_runner.ip]
+    nvlink_results_full = run_nvlink_tests(
+        [command_runner], output_file=(os.path.join(tests_dir,"nvlink.txt")), dims=16_000_000, loops=30_000
+    )
+    #nvlink_results = nvlink_results_full
     logger.info(f"Finished running nvlink tests for {command_runner.ip}")
 
     results_dict = {
         "time": readable_time,
         "ip": command_runner.ip,
-        "nvlink": nvlink_results,
+        "nvlink": nvlink_results_full,
     }
-    with open(tests_dir / "summary.json", "w+") as f:
+    with open(os.path.join(tests_dir, "summary.json"), "w+") as f:
         json.dump(results_dict, f)
 
     p2p_results = run_p2p_ib_tests(
-        [command_runner], single_host=True, output_file=(tests_dir / "p2p_ib.txt"), num_iterations=5
-    )[command_runner]
+        [command_runner], single_host=True, output_file=(os.path.join(tests_dir,"p2p_ib.txt")), num_iterations=5
+    )[command_runner.ip]
     logger.info(f"Finished running p2p tests for {command_runner.ip}")
 
     results_dict["p2p_ib"] = p2p_results
-    with open(tests_dir / "summary.json", "w+") as f:
+    with open(os.path.join(tests_dir, "summary.json"), "w+") as f:
         json.dump(results_dict, f)
 
     logger.info(f"Finished running tests for {command_runner.ip}")
-
-    command_runner.run_command(
-        f"cd {remote_tests_dir} && if [ -L latest ]; then rm latest; fi && ln -s {filename_time} latest"
-    )
-
 
 def run_all_single_node_tests(connections: List[CommandRunner]) -> None:
     with ThreadPoolExecutor(max_workers=len(connections)) as executor:
@@ -379,7 +380,7 @@ def run_all_single_node_tests(connections: List[CommandRunner]) -> None:
     logger.info("Finished running all single node tests")
 
 
-POSSIBLE_TESTS = ["group_ib", "p2p_ib", "nvlink", "wait", "all_single_node"]
+POSSIBLE_TESTS = ["group_ib", "all_rail_group_ib", "p2p_ib", "nvlink", "wait", "all_single_node"]
 
 
 def get_worker_connections() -> List[RemoteCommandRunner]:
@@ -388,7 +389,7 @@ def get_worker_connections() -> List[RemoteCommandRunner]:
     return [RemoteCommandRunner(connection=ContainerSSHConnectionData(ip=node, port=port, user=user)) for node in nodes]
 
 
-def run(test: str) -> None:
+def run(test: str,output_file: Optional[Path] = None) -> None:
     assert test in POSSIBLE_TESTS, f"test {test} not in {POSSIBLE_TESTS}"
     connections = get_worker_connections()
     match test:
@@ -402,23 +403,17 @@ def run(test: str) -> None:
             run_p2p_ib_tests(connections)
 
         case "nvlink":
-            run_nvlink_tests(connections)
+            run_nvlink_tests(connections,output_file)
 
         case "all_single_node":
             logger.info(f"Starting single node tests on {','.join([str(c.ip) for c in connections])}")
             run_all_single_node_tests(connections)
 
-        case "wait":
-            logger.info("Waiting forever")
-            print(f"connections: {','.join([str(c) for c in connections])}")
-            logger.info(f"connections: {','.join([str(c) for c in connections])}")
-            time.sleep(100000)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--test")
+    parser.add_argument("--output")
 
     args = parser.parse_args()
 

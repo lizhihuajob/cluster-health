@@ -322,6 +322,7 @@ for stage, stage_paths in enumerate(SELECTED_ROUTES):
     SCRIPT.append(f'echo "stage {stage}; awaiting"')
     SCRIPT.append("wait")
     SCRIPT.append(f'echo "stage {stage}; finished"')
+    
 
 
 SCRIPT_FILE = open("ib_burn.sh", "w")

@@ -302,14 +302,14 @@ def run_single_host_p2p(
 
 def run_p2p_ib_tests(
     connections: Sequence[CommandRunner],
-    output_file: Optional[Path] = None,
+    output_file: str = None,
     single_host: bool = False,
     num_iterations: int = 15,
 ) -> Dict[str, Dict[str, int]]:
     test = "p2p_ib" if not single_host else "host_p2p_ib"
     ip_to_runs_passed: Dict[str, int] = {connection.ip: 0 for connection in connections}
     if output_file:
-        with output_file.open("a+") as f:
+        with open(output_file,"a+") as f:
             f.write(f"Starting {test} test with connections {connections}\n")
 
     full_connections = [FullConnection(ssh_connection=c, internal_ip="127.0.0.1") for c in connections]
@@ -338,7 +338,7 @@ def run_p2p_ib_tests(
                 f"{test} after {run_count} iterations results: {sorted(ip_to_runs_passed.items(), key = lambda item: item[1])}"
             )
             if output_file:
-                with output_file.open("a+") as f:
+                with open(output_file,"a+") as f:
                     f.write(f"All results for run {run_count}: {connection_to_result}\n")
                     f.write(f"Bad p2p_hosts {bad_hosts} with results: {bad_hosts_results}\n")
                     f.write(
@@ -354,7 +354,7 @@ def run_p2p_ib_tests(
     logger.info(f"Final p2p_host results: {sorted(ip_to_runs_passed.items(), key = lambda item: item[1])}")
 
     if output_file:
-        with output_file.open("a+") as f:
+        with open(output_file,"a+") as f:
             f.write(f"From last run all p2p_hosts results: {last_results}")
             f.write(f"Final p2p_host results: {sorted(ip_to_runs_passed.items(), key=lambda item: item[1])}")
 
