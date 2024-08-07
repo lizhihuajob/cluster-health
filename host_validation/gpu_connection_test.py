@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+"""
+This file is used to test the gpu connection and communication
+"""
 import argparse
 import os
 import resource

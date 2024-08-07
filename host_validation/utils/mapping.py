@@ -9,13 +9,15 @@ from typing import List
 from typing import Mapping
 from typing import NoReturn
 from typing import Optional
-from typing import Self
+#from typing import Self
 from typing import Tuple
 from typing import TypeVar
 
 T = TypeVar("T")
 
 TV = TypeVar("TV")
+
+Self = TypeVar("Self", bound="_FrozenDict")
 
 
 def remove_none(data: Iterable[Optional[T]]) -> List[T]:

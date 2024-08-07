@@ -12,13 +12,23 @@ That assumption holds for IB fabrics with AR (Adaptive Routing) enabled, but you
 This script can't be directly used with ethernet / RoCE fabrics, but the general logic should work.
 
 You'll want to garther traffic counters before and after the burn-in to verify the results.
+
+这段代码的主要功能是为InfiniBand网络中的数据传输路径选择最佳路径，并生成一个脚本，该脚本用于在多个服务器之间进行带宽燃烧测试，以验证路径选择的有效性。
+代码的执行过程如下：
+根据给定的网络拓扑信息，计算每对交换机之间的总带宽，并将其存储在THROUGHPUT_MMAP中。
+生成一个包含所有可能的路径的列表POSSIBLE_ROUTES。
+对于每个阶段（stage），随机重排序POSSIBLE_ROUTES，然后遍历每条路径，计算通过该路径传输数据所需的带宽，并检查是否满足带宽限制条件。
+如果路径满足条件，则将其添加到当前阶段的路径列表stage_paths中，并更新NEEDED_LINKS以表示已使用的链接。
+重复步骤3和4，直到所有需要的链接都被满足或达到最大阶段数。
+生成一个脚本文件ib_burn.sh，其中包含为每个选定路径执行带宽燃烧测试的命令。
+该代码的目的是通过在InfiniBand网络中选择最佳路径并测试其性能，来优化数据传输速度和网络利用率。
 """
 
 import collections
 import itertools
 import json
 import random
-
+import os
 import networkx
 import numpy
 
@@ -34,9 +44,12 @@ SERVER_STARTUP_TIME = CONFIG["ib_burn"]["server_startup_time"]
 WRITER_STARTUP_TIME = CONFIG["ib_burn"]["writer_startup_time"]
 STAGE_INNER_TIMEOUT = PARALLEL_STAGE_TIME + SERVER_STARTUP_TIME + WRITER_STARTUP_TIME + 10
 
-
+# 定义一个字典，用于存储从GUID到InfiniBand HCA（主机通道适配器）的映射关系
+# 这个映射关系有助于快速查找和管理与特定GUID相关联的InfiniBand HCA信息
 GUID_TO_HOST_IB_HCA = {}
+# 定义一个字典，用于存储GUID到交换机名称的映射
 GUID_TO_SWITCH_NAME = {}
+
 
 SWITCH_TO_SWITCH_LINKS = collections.Counter()
 LEAF_SWITCH_TO_HOST_IB = collections.defaultdict(list)
@@ -64,6 +77,9 @@ for line in open("ib_switch.link"):
         continue
     SWITCH_TO_SWITCH_LINKS[guid1, guid2] += 1
 
+print("LEAF_SWITCH_TO_HOST_IB",LEAF_SWITCH_TO_HOST_IB)
+print("SWITCH_TO_SWITCH_LINKS",SWITCH_TO_SWITCH_LINKS)
+
 GRAPH = networkx.Graph()
 for switch1, switch2 in SWITCH_TO_SWITCH_LINKS:
     name1 = GUID_TO_SWITCH_NAME[switch1]
@@ -72,6 +88,7 @@ for switch1, switch2 in SWITCH_TO_SWITCH_LINKS:
 
 GUID_TO_SWITCH_NAME[None] = "SWITCH-RAIL-HOSTS"
 for guid in list(LEAF_SWITCH_TO_HOST_IB.keys()):
+    print(guid,LEAF_SWITCH_TO_HOST_IB[guid])
     SWITCH_TO_SWITCH_LINKS[None, guid] = len(LEAF_SWITCH_TO_HOST_IB[guid])
     SWITCH_TO_SWITCH_LINKS[guid, None] = len(LEAF_SWITCH_TO_HOST_IB[guid])
 
@@ -83,10 +100,14 @@ for guid in GUID_TO_SWITCH_NAME:
     GUID_TO_SWITCH_INDEX.setdefault(guid, len(GUID_TO_SWITCH_INDEX))
 
 SWITCH_INDEX_TO_GUID = {v: k for k, v in GUID_TO_SWITCH_INDEX.items()}
-
+print(GUID_TO_SWITCH_INDEX)
+print(SWITCH_INDEX_TO_GUID)
 
 BURN_SOURCE_GUIDS = list(LEAF_SWITCH_TO_HOST_IB)
 BURN_TARGET_GUIDS = list(LEAF_SWITCH_TO_HOST_IB)
+
+print("BURN_SOURCE_GUIDS:",BURN_SOURCE_GUIDS)
+print("BURN_TARGET_GUIDS:",BURN_TARGET_GUIDS)
 
 THROUGHPUT_SHAPE = (
     len(BURN_SOURCE_GUIDS) + 1,
@@ -95,15 +116,19 @@ THROUGHPUT_SHAPE = (
     len(GUID_TO_SWITCH_INDEX),
 )
 
-if False:
+print(THROUGHPUT_SHAPE)
+
+if os.path.exists("ib_routes.mmap") == False:
     THROUGHPUT_MMAP = numpy.memmap("ib_routes.mmap", dtype=numpy.float64, mode='w+', shape=THROUGHPUT_SHAPE)
 
+    # 对涉及源和目标交换机之间的所有最短路径，计算每条路径的带宽，并将结果存储在THROUGHPUT_MMAP中。
     for source_guid, target_guid in itertools.product(BURN_SOURCE_GUIDS, BURN_TARGET_GUIDS):
         if source_guid == target_guid:
             continue
 
         route_list = list(networkx.all_shortest_paths(GRAPH, source_guid, target_guid))
         route_cost = 1.0 / len(route_list)
+        print("ib_routes.mmap:",source_guid, target_guid,route_list,route_cost)
 
         link_bw = collections.Counter()
 
@@ -113,7 +138,7 @@ if False:
             for guid1, guid2 in zip(path[:-1], path[1:]):
                 link_bw[guid1, guid2] += route_cost
             link_bw[guid2, None] += route_cost
-        
+
         link_bw_shape = (
             len(GUID_TO_SWITCH_INDEX),
             len(GUID_TO_SWITCH_INDEX),
@@ -128,7 +153,7 @@ if False:
             total_badwidth = SWITCH_TO_SWITCH_LINKS[guid1,guid2]
             used_bandwidth = bandwidth / total_badwidth
             link_bw_array[gidx1, gidx2] = used_bandwidth
-        
+
         source_idx = GUID_TO_SWITCH_INDEX[source_guid]
         target_idx = GUID_TO_SWITCH_INDEX[target_guid]
         THROUGHPUT_MMAP[source_idx, target_idx] = link_bw_array
@@ -136,7 +161,7 @@ if False:
     THROUGHPUT_MMAP.flush()
 else:
     THROUGHPUT_MMAP = numpy.memmap("ib_routes.mmap", dtype=numpy.float64, mode='r', shape=THROUGHPUT_SHAPE)
-    
+
 
 BURN_SOURCE_INDEXES = list(range(1, len(LEAF_SWITCH_TO_HOST_IB) + 1))
 BURN_TARGET_INDEXES = list(range(1, len(LEAF_SWITCH_TO_HOST_IB) + 1))
@@ -144,12 +169,16 @@ BURN_TARGET_INDEXES = list(range(1, len(LEAF_SWITCH_TO_HOST_IB) + 1))
 POSSIBLE_ROUTES = list(itertools.product(BURN_SOURCE_INDEXES, BURN_TARGET_INDEXES))
 SELECTED_ROUTES = []
 
+print(POSSIBLE_ROUTES)
 
 NEEDED_SHAPE = (
     len(GUID_TO_SWITCH_INDEX),
     len(GUID_TO_SWITCH_INDEX),
 )
 NEEDED_LINKS = numpy.zeros(NEEDED_SHAPE, dtype=numpy.uint8)
+
+print(NEEDED_SHAPE)
+print(NEEDED_LINKS)
 
 for guid1, guid2 in SWITCH_TO_SWITCH_LINKS.keys():
     if guid1 is None:
@@ -160,22 +189,33 @@ for guid1, guid2 in SWITCH_TO_SWITCH_LINKS.keys():
     j = GUID_TO_SWITCH_INDEX[guid2]
     NEEDED_LINKS[i,j] = True
 
-
+print("NEEDED_LINKS",NEEDED_LINKS)
 print(NEEDED_LINKS.sum())
+
+#print("THROUGHPUT_MMAP",THROUGHPUT_MMAP)
 
 for stage in range(128):
     random.shuffle(POSSIBLE_ROUTES)
-
+    # 用于保存已经占用的带宽资源，数据来源于之前的计算步骤
     stage_bw = numpy.zeros(NEEDED_SHAPE, dtype=THROUGHPUT_MMAP.dtype)
     stage_paths = []
     stage_burns = 0
     for source_idx, target_idx in POSSIBLE_ROUTES:
         if source_idx == target_idx:
             continue
+        '''
+        1,只计算带主机的交换机，不带主机pass
+        
+        '''
+        print("------------------------------------------------------")
+        print(NEEDED_LINKS)
+        print(THROUGHPUT_MMAP[source_idx, target_idx])
+        print("------------------------------------------------------")
         possible_new_links = (NEEDED_LINKS & (THROUGHPUT_MMAP[source_idx, target_idx] > 0)).sum()
+        print("possible_new_links  1:",possible_new_links,source_idx, target_idx)
         if possible_new_links == 0:
             continue
-
+        # print("possible_new_links  2", possible_new_links, source_idx, target_idx)
         source_guid = SWITCH_INDEX_TO_GUID[source_idx]
         target_guid = SWITCH_INDEX_TO_GUID[target_idx]
         max_servers = max(
@@ -184,31 +224,39 @@ for stage in range(128):
         )
         route_bw = THROUGHPUT_MMAP[source_idx, target_idx]
         num_servers = 0
-
+        print("possible_new_links  3:",max_servers)
+        print( route_bw)
         for k in range(1, max_servers + 1):
             planned_link_bw = stage_bw + route_bw * k
-            if (planned_link_bw.max() < MAX_LINK_BW):
+            print(k,planned_link_bw)
+            if planned_link_bw.max() < MAX_LINK_BW:
                 num_servers = k
             else:
                 break
-
-        if (num_servers > 0):
+        # print("possible_new_links  4",  num_servers)
+        if num_servers > 0:
             stage_paths.append((source_guid, target_guid, num_servers))
             stage_bw = stage_bw + route_bw * num_servers
             stage_burns += num_servers
-            if (stage_burns > STAGE_SIZE):
+            #print("stage_burns:",stage_burns,STAGE_SIZE)
+            if stage_burns > STAGE_SIZE:
                 break
+        # print("possible_new_links  5", stage_burns)
+        # print(stage_bw)
 
     burned_links = (stage_bw >= MIN_LINK_BW)
     burned_first = (burned_links & NEEDED_LINKS)
 
     NEEDED_LINKS[burned_links] = 0
-    print(NEEDED_LINKS.sum(), burned_first.sum())
+    print(stage,NEEDED_LINKS.sum(), burned_first.sum())
 
     if burned_first.any():
+        print("add script:",stage_paths)
         SELECTED_ROUTES.append(stage_paths)
-    
-    if (NEEDED_LINKS.sum() == 0):
+
+    if NEEDED_LINKS.sum() == 0:
+        break
+    if burned_first.sum() == 0:
         break
 
 SCRIPT = [
@@ -229,7 +277,7 @@ for stage, stage_paths in enumerate(SELECTED_ROUTES):
         ))
         stage_chunk.append(paired_host_hcas)
     for chunk, paired_host_hcas in enumerate(stage_chunk):
-        SCRIPT.append(f"echo stage {stage}; chunk {chunk} / {chunk_count}; servers")
+        SCRIPT.append(f'echo "stage {stage}; chunk {chunk} / {chunk_count}; servers"')
         for (source_host, source_hca), (target_host, target_hca) in paired_host_hcas:
             server_port = list(CONFIG["ib_hcas"]).index(target_hca) + 40_000
             target_addr = CONFIG["node_info"]["nodes"].get(target_host, target_host)
@@ -237,7 +285,7 @@ for stage, stage_paths in enumerate(SELECTED_ROUTES):
             SCRIPT.append(" ".join((
                 "ssh",
                 f"{target_user}@{target_addr}",
-                "timeout {STAGE_INNER_TIMEOUT}",
+                f"timeout {STAGE_INNER_TIMEOUT}",
                 "stdbuf -oL -eL",
                 "ib_write_bw",
                 "--CPU-freq",
@@ -245,11 +293,11 @@ for stage, stage_paths in enumerate(SELECTED_ROUTES):
                 f"--ib-dev={target_hca}",
                 f"--duration {PARALLEL_STAGE_TIME}",
                 f"--port {server_port}",
-                "&> ./ib_burn_logs/{source_host}-{source_hca}-{target_host}-{target_hca}-server.log",
+                f"&> ./ib_burn_logs/{source_host}-{source_hca}-{target_host}-{target_hca}-server.log",
                 "&",
             )))
         SCRIPT.append(f"sleep {SERVER_STARTUP_TIME}")
-        SCRIPT.append(f"echo stage {stage}; chunk {chunk} / {chunk_count}; writers")
+        SCRIPT.append(f'echo "stage {stage}; chunk {chunk} / {chunk_count}; writers"')
         for (source_host, source_hca), (target_host, target_hca) in paired_host_hcas:
             server_port = list(CONFIG["ib_hcas"]).index(target_hca) + 40_000
             target_addr = CONFIG["node_info"]["nodes"].get(target_host, target_host)
@@ -257,8 +305,8 @@ for stage, stage_paths in enumerate(SELECTED_ROUTES):
             source_user = CONFIG["node_info"]["user"]
             SCRIPT.append(" ".join((
                 "ssh",
-                f"{source_user}@{source_host}",
-                "timeout {STAGE_INNER_TIMEOUT}",
+                f"{source_user}@{source_addr}",
+                f"timeout {STAGE_INNER_TIMEOUT}",
                 "stdbuf -oL -eL",
                 "ib_write_bw",
                 "--CPU-freq",
@@ -267,13 +315,13 @@ for stage, stage_paths in enumerate(SELECTED_ROUTES):
                 f"--duration {PARALLEL_STAGE_TIME}",
                 f"--port {server_port}",
                 f"{target_host}",
-                "&> ./ib_burn_logs/{source_host}-{source_hca}-{target_host}-{target_hca}-writer.log",
+                f"&> ./ib_burn_logs/{source_host}-{source_hca}-{target_host}-{target_hca}-writer.log",
                 "&",
             )))
         SCRIPT.append(f"sleep {WRITER_STARTUP_TIME}")
-    SCRIPT.append(f"echo stage {stage}; awaiting")
+    SCRIPT.append(f'echo "stage {stage}; awaiting"')
     SCRIPT.append("wait")
-    SCRIPT.append(f"echo stage {stage}; finished")
+    SCRIPT.append(f'echo "stage {stage}; finished"')
 
 
 SCRIPT_FILE = open("ib_burn.sh", "w")

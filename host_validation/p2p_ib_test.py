@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+"""
+This file is used to test the performance of the Infiniband network on the host.
+It is run as a script on each host in the cluster.
+"""
 import json
 import os
 import random

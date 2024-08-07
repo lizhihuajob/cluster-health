@@ -279,9 +279,12 @@ def run_nvlink_test_single_host(
     logger.info(f"running on {connection.ip} node")
     try:
         with get_expiration_event(EXPIRATION_SECONDS) as event:
+            # 获取文件所在路径
+            app_path = os.path.abspath(os.path.dirname(__file__))
             command = (
-                f"{format_env(ENV_VARS)} torchrun --nproc_per_node 8 host_validation/gpu_connection_test.py nvlink --dims {dims} --loops {loops}"
+                f"{format_env(ENV_VARS)} torchrun --nproc_per_node 8 {app_path}/gpu_connection_test.py nvlink --dims {dims} --loops {loops}"
             )
+            print("commands:",command)
             result = connection.run_command(
                 command=command,
                 shutdown_event=event,
@@ -308,6 +311,7 @@ def run_nvlink_tests(
     scores_by_connection = {}
 
     nodes = [group[0] for group in generate_chunks(connections, group_size)]
+    print("nodes:",nodes)
     with ThreadPoolExecutor(max_workers=len(nodes)) as executor:
         results = executor.map(lambda node: run_nvlink_test_single_host(node, dims, loops), nodes)
     for connection, scores in results:
@@ -423,3 +427,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

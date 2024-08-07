@@ -2,11 +2,14 @@ from types import TracebackType
 from typing import Any
 from typing import Dict
 from typing import Optional
-from typing import Self
+#from typing import Self
 from typing import cast
 
 from tblib import Traceback
 
+from typing import TypeVar
+
+Self = TypeVar("Self", bound="FixedTraceback")
 
 class FixedTraceback(Traceback):
     """

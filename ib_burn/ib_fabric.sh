@@ -11,7 +11,12 @@ IB_SWITCH_LINK="./ib_switch.link"
 
 cd $(dirname "$SOURCE")
 
-echo > "$IB_SERVER_LIST"
+cat /dev/null > "$IB_SERVER_LIST"
+
+if test -f ib_routes.mmap ; then
+    echo "ib_routes.mmap exists, remove"
+    rm -rf ib_routes.mmap
+fi
 
 function read_config {
     jq --raw-output --arg ARG "${2:-}" "$1" "$CONFIG"
@@ -25,7 +30,7 @@ do
     SSH_ADDR=$(read_config '.node_info.nodes[$ARG]' "$SSH_HOST")
     for IB_HCA in $(read_config '.ib_hcas | keys[]')
     do
-        IB_GUID=$(ssh "$SSH_USER@$SSH_ADDR" "ibstat --short $IB_HCA | grep Node | tr ' ' '\t' | cut -f 4")
+        IB_GUID=$(ssh -o StrictHostKeyChecking=no "$SSH_USER@$SSH_ADDR" "ibstat --short $IB_HCA | grep Node | tr ' ' '\t' | cut -f 4")
         echo "$IB_GUID $SSH_HOST $IB_HCA" >> "$IB_SERVER_LIST"
     done
 done
