@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="aa6f2297-c48c-4c5a-afa4-907128b60a99" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/host_validation/communication_validation_tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/host_validation/communication_validation_tests.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/host_validation/gpu_connection_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/host_validation/gpu_connection_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/host_validation/p2p_ib_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/host_validation/p2p_ib_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/host_validation/utils/fixed_traceback.py" beforeDir="false" afterPath="$PROJECT_DIR$/host_validation/utils/fixed_traceback.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/host_validation/utils/mapping.py" beforeDir="false" afterPath="$PROJECT_DIR$/host_validation/utils/mapping.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/host_validation/utils/run_command.py" beforeDir="false" afterPath="$PROJECT_DIR$/host_validation/utils/run_command.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/host_validation/utils/serialization.py" beforeDir="false" afterPath="$PROJECT_DIR$/host_validation/utils/serialization.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ib_burn/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/ib_burn/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ib_burn/ib_burn.py" beforeDir="false" afterPath="$PROJECT_DIR$/ib_burn/ib_burn.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ib_burn/ib_fabric.sh" beforeDir="false" afterPath="$PROJECT_DIR$/ib_burn/ib_fabric.sh" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="2jzdaS3i3ghYQ2tTkz2lL4V83li" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "Python.communication_validation_tests.executor": "Run",
+    "Python.ib_burn.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "master",
+    "settings.editor.selected.configurable": "preferences.pluginManager"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-0509580d9d50-746f403e7f0c-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-241.14494.241" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="应用程序级" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="aa6f2297-c48c-4c5a-afa4-907128b60a99" name="更改" comment="" />
+      <created>1722393902626</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1722393902626</updated>
+    </task>
+    <servers />
+  </component>
+</project>

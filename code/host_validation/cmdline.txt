@@ -1,0 +1,11 @@
+#ib test cmd
+NCCL_NET=IB NCCL_DEBUG_SUBSYS=ALL NCCL_ASYNC_ERROR_HANDLING=1 NCCL_IB_HCA==mlx5_0,mlx5_4,mlx5_5,mlx5_8 python3 /home/ubuntu/cluster-health-lizh/host_validation/gpu_connection_test.py ib --rail 5 --master_addr 10.100.200.1 --master_port 9005 --rank 0 --world_size 1
+NCCL_NET=IB NCCL_DEBUG_SUBSYS=ALL NCCL_ASYNC_ERROR_HANDLING=1 NCCL_IB_HCA==mlx5_0,mlx5_4,mlx5_5,mlx5_8 python3 /opt/cluster-health/host_validation/gpu_connection_test.py ib --rail 5 --master_addr 10.100.200.6 --master_port 9005 --rank 0 --world_size 1
+
+#nvlink test cmd
+NCCL_NET=IB NCCL_DEBUG_SUBSYS=ALL NCCL_ASYNC_ERROR_HANDLING=1 NCCL_IB_HCA==mlx5_0,mlx5_4,mlx5_5,mlx5_8 /usr/local/python3/bin/torchrun --nproc_per_node 8 /home/ubuntu/cluster-health-lizh/host_validation/gpu_connection_test.py nvlink --dims 1000000000 --loops 1
+NCCL_NET=IB NCCL_DEBUG_SUBSYS=ALL NCCL_ASYNC_ERROR_HANDLING=1 NCCL_IB_HCA==mlx5_0,mlx5_4,mlx5_5,mlx5_8 /usr/local/python3/bin/torchrun --nproc_per_node 8 /data/lizh/cluster-health/host_validation/gpu_connection_test.py nvlink --dims 1000000000 --loops 1
+NCCL_NET=IB NCCL_DEBUG_SUBSYS=ALL NCCL_ASYNC_ERROR_HANDLING=1 NCCL_IB_HCA==mlx5_0,mlx5_4,mlx5_5,mlx5_8 torchrun --nproc_per_node 8 /opt/cluster-health/host_validation/gpu_connection_test.py nvlink --dims 1000000000 --loops 1
+
+#
+docker run --name test-he-v2 -itd --network=host --gpus all --shm-size 32g --ipc=host --cap-add=IPC_LOCK --device=/dev/infiniband  health-check-v2:v1  /bin/bash

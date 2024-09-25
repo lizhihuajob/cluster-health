@@ -1,0 +1,18 @@
+{
+  "node_info": {
+    "nodes": ["10.100.200.6","10.100.200.2","10.100.200.4","10.100.200.7","10.100.200.8"],
+    "port": "16802",
+    "user": "root"
+  },
+  "infiniband_status": {
+    "network_type": "NDR",
+    "active_devices": "4",
+    "device_names": ["mlx5_0","mlx5_4","mlx5_5","mlx5_8"],
+    "device_subnet_prefix": {
+      "mlx5_0": "172.16.0.0/24",
+      "mlx5_4": "172.16.4.0/24",
+      "mlx5_5": "172.16.5.0/24",
+      "mlx5_8": "172.16.8.0/24"
+    }
+  }
+}

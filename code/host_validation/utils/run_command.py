@@ -1,28 +1,25 @@
 import subprocess
 
 IP = str
-import shlex
+#import shlex
 from typing import Protocol
 
 import attr
 
 
-def run_local_command(
-    command: str,
-) -> str:
-    print("command:",command)
+def run_local_command( command: list) -> str:
+    #print("command:",command)
     # This call to subprocess.Popen is not robust and is meant to be a placeholder for whatever method
     # you use for running arbitrary commands locally.
-    process = subprocess.Popen(
-        command.split(" "),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    msg_stdout, msg_stderr = process.communicate()
-    print("stdout:",msg_stdout)
-    print("stderr:",msg_stderr)
-    return msg_stdout
+    result = subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True)
+    msg_stdout = result.stdout
+    msg_stderr = result.stderr
+    #print("returncode:",result.returncode)
+    if result.returncode != 0:
+        print(msg_stderr)
+    else:
+        print(msg_stdout)
+    return  result.returncode,msg_stdout,msg_stderr
 
 
 @attr.s(auto_attribs=True, frozen=True)
@@ -33,7 +30,7 @@ class ProcessResult:
 
 class CommandRunner(Protocol):
     def run_command(self, command: str, **kwargs: object) -> ProcessResult:
-        print("CommandRunner base")
+        #print("CommandRunner base")
         ...
 
     @property
@@ -48,9 +45,11 @@ class ContainerSSHConnectionData:
     user: str
 
     def run_command(self, command: str) -> str:
-        print("ContainerSSHConnectionData :",command)
-        escaped_command = shlex.quote(command)
-        return run_local_command(f"ssh {self.user}@{self.ip} -p {self.port} {escaped_command}")
+        #print("ContainerSSHConnectionData :",command)
+        #escaped_command = shlex.quote(command)
+        #self.port = 16802
+        command_line = ["ssh", "-p", f"{self.port}", f"{self.user}@{self.ip}", f"{command}"]
+        return run_local_command(command_line)
 
 
 @attr.s(auto_attribs=True, frozen=True)
@@ -58,10 +57,14 @@ class RemoteCommandRunner(CommandRunner):
     connection: ContainerSSHConnectionData
 
     def run_command(self, command: str, **kwargs: object) -> ProcessResult:
-        print("RemoteCommandRunner ...")
+        #print("RemoteCommandRunner ...")
         # This is a placeholder for whatever method you use to run commands over ssh
-        msg_stdout = self.connection.run_command(command)
-        return ProcessResult(returncode=0, output=str(msg_stdout))
+        rescode,msg_stdout,msg_stderr = self.connection.run_command(command)
+        if rescode != 0:
+            return ProcessResult(returncode=rescode, output=str(msg_stderr))
+        else:
+            return ProcessResult(returncode=rescode, output=str(msg_stdout))
+        
 
     @property
     def ip(self) -> IP:
@@ -75,3 +78,4 @@ class RemoteCommandRunner(CommandRunner):
 class FullConnection:
     ssh_connection: CommandRunner
     internal_ip: str
+    internal_index: int

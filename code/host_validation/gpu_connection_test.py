@@ -80,32 +80,32 @@ def run_ib(
     dist.init_process_group(
         backend="nccl", init_method=f"tcp://{master_addr}:{master_port}", rank=rank, world_size=world_size
     )
-    logger.info(f"inited dist for ib_test: rank {rank}, world size {world_size}, rail {rail}")
+    print(f"inited dist for ib_test: rank {rank}, world size {world_size}, rail {rail}")
 
     results = run_checks(dim_items=int(dims**0.5), rail=rail, loops=loops)
 
-    logger.info(f"completed ib_test: rank {rank}, world size {world_size}, rail {rail}: result {results}")
+    print(f"completed ib_test: rank {rank}, world size {world_size}, rail {rail}: result {results}")
 
     # this is for the parent to grab in stdout
-    results_schema = IbResultsSchema(results=tuple(results), rail=rail)
+    #results_schema = IbResultsSchema(results=tuple(results), rail=rail)
     # Can't use a block here since it can interleave badly with the other rails
-    print(serialize_to_json(results_schema))
+    #print(serialize_to_json(results_schema))
 
 
 def run_nvlink(dims: int, loops: int) -> None:
     logger.info(f"starting nvlink_test")
     init_dist()
     rank = get_local_rank()
-    logger.info(f"inited dist for nvlink_test with rank {rank}")
+    print(f"inited dist for nvlink_test with rank {rank}")
 
     results = run_checks(dim_items=int(dims**0.5), loops=loops)
 
-    logger.info(f"completed nvlink_test: result {results}")
+    print(f"completed nvlink_test: result {results}")
 
     # this is for the parent to grab in stdout
     # a block could probably be used here instead, but just leave it consistent with the above test
-    results_schema = NvlinkResultsSchema(results=tuple(results))
-    print(serialize_to_json(results_schema))
+    #results_schema = NvlinkResultsSchema(results=tuple(results))
+   # print(serialize_to_json(results_schema))
 
 
 @logger.catch(reraise=True)
@@ -141,7 +141,7 @@ def main() -> None:
         default=1_000_000_000,
         help="items in array to all_reduce, specifically we create a sqrt(dim_items) x sqrt(dim_items) array",
     )
-    ib_parser.add_argument("--loops", type=int, default=200, help="number of loops of allreduce to run")
+    ib_parser.add_argument("--loops", type=int, default=100, help="number of loops of allreduce to run")
     ib_parser.add_argument("--force_ib", action="store_true", help="whether to force communication over infiniband")
     ib_parser.set_defaults(func=run_ib)
 
