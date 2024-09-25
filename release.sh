@@ -3,6 +3,7 @@
 CurPath=$(cd `dirname $0`; pwd)
 Time=`date +%Y%m%d_%H%M%S`
 
+
 #输入版本号,不换行。echo 不换行
 echo -en "\033[32mplease input version number:\033[0m"
 read version

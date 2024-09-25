@@ -1,5 +1,5 @@
 #!/bin/bash
-# 
+#
 # docker images 通过离线方式导入。cluster-health 代码通过在线方式下载
 #
 set -eu
@@ -35,18 +35,18 @@ fi
 
 #加载docker images
 ## 检测是否存在旧镜像，如果存在则移除
-docker ps  | grep ${containerName} | while read line 
-do 
+docker ps  | grep ${containerName} | while read line
+do
     echo "[${Time}] stop old ${containerName} container"
     docker stop ${containerName}
 done
-docker ps -a  | grep ${containerName} | while read line 
-do 
+docker ps -a  | grep ${containerName} | while read line
+do
     echo "[${Time}] remove old ${containerName} container"
     docker rm ${containerName}
 done
-docker images --filter reference=${imageName}   |grep -v REPOSITORY | while read line 
-do 
+docker images --filter reference=${imageName}   |grep -v REPOSITORY | while read line
+do
     echo "[${Time}] remove old ${imageName}:${imageTag} image"
     docker rmi ${imageName}:${imageTag}
 done
